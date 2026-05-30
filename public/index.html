@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Employee AI Literacy Scorer</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #f0f2f5;
+      color: #1a1a2e;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 40px 16px;
+    }
+
+    header {
+      text-align: center;
+      margin-bottom: 32px;
+    }
+    header h1 {
+      font-size: 1.9rem;
+      font-weight: 700;
+      color: #1a1a2e;
+    }
+    header p {
+      margin-top: 6px;
+      color: #555;
+      font-size: 0.95rem;
+    }
+
+    .card {
+      background: #fff;
+      border-radius: 12px;
+      box-shadow: 0 2px 16px rgba(0,0,0,0.09);
+      padding: 32px;
+      width: 100%;
+      max-width: 780px;
+    }
+
+    /* ---- drop zone ---- */
+    #drop-zone {
+      border: 2px dashed #c0c4cc;
+      border-radius: 10px;
+      padding: 40px 24px;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color 0.2s, background 0.2s;
+    }
+    #drop-zone.drag-over {
+      border-color: #4361ee;
+      background: #eef0fd;
+    }
+    #drop-zone svg { margin-bottom: 12px; opacity: 0.5; }
+    #drop-zone p { color: #666; font-size: 0.95rem; }
+    #drop-zone span { color: #4361ee; font-weight: 600; cursor: pointer; }
+    #file-input { display: none; }
+
+    /* ---- file list ---- */
+    #file-list {
+      margin-top: 18px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .file-chip {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: #f0f2f5;
+      border-radius: 20px;
+      padding: 4px 12px;
+      font-size: 0.83rem;
+      color: #333;
+    }
+    .file-chip .remove {
+      cursor: pointer;
+      color: #999;
+      font-size: 1rem;
+      line-height: 1;
+    }
+    .file-chip .remove:hover { color: #e53935; }
+
+    /* ---- actions ---- */
+    .actions {
+      margin-top: 22px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    #submit-btn {
+      background: #4361ee;
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      padding: 10px 26px;
+      font-size: 0.95rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    #submit-btn:hover:not(:disabled) { background: #3451d1; }
+    #submit-btn:disabled { opacity: 0.55; cursor: not-allowed; }
+
+    /* ---- status ---- */
+    #status {
+      display: none;
+      align-items: center;
+      gap: 10px;
+      font-size: 0.9rem;
+      color: #555;
+    }
+    .spinner {
+      width: 18px; height: 18px;
+      border: 2px solid #d0d3e8;
+      border-top-color: #4361ee;
+      border-radius: 50%;
+      animation: spin 0.75s linear infinite;
+      flex-shrink: 0;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ---- error banner ---- */
+    #error-banner {
+      display: none;
+      margin-top: 18px;
+      background: #fff0f0;
+      border: 1px solid #f5c6cb;
+      border-radius: 8px;
+      padding: 12px 16px;
+      color: #c0392b;
+      font-size: 0.88rem;
+    }
+
+    /* ---- results ---- */
+    #results-section {
+      display: none;
+      margin-top: 28px;
+    }
+    #results-section h2 {
+      font-size: 1.05rem;
+      font-weight: 600;
+      margin-bottom: 14px;
+      color: #1a1a2e;
+    }
+
+    .table-wrap { overflow-x: auto; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.88rem;
+    }
+    thead th {
+      background: #f5f6fa;
+      padding: 10px 14px;
+      text-align: left;
+      font-weight: 600;
+      color: #444;
+      border-bottom: 2px solid #e8eaf0;
+    }
+    tbody tr:nth-child(even) { background: #fafbff; }
+    tbody td {
+      padding: 10px 14px;
+      border-bottom: 1px solid #eee;
+      word-break: break-all;
+    }
+    .score-badge {
+      display: inline-block;
+      padding: 2px 10px;
+      border-radius: 12px;
+      font-weight: 600;
+      font-size: 0.85rem;
+    }
+    .score-low    { background: #fdecea; color: #c0392b; }
+    .score-mid    { background: #fff3e0; color: #e65100; }
+    .score-high   { background: #e8f5e9; color: #2e7d32; }
+    .score-error  { background: #f5f6fa; color: #777; font-weight: 400; font-size: 0.8rem; }
+
+    #download-btn {
+      margin-top: 16px;
+      background: #2ecc71;
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      padding: 9px 22px;
+      font-size: 0.9rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    #download-btn:hover { background: #27ae60; }
+
+    footer {
+      margin-top: 36px;
+      font-size: 0.78rem;
+      color: #aaa;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>Employee AI Literacy Scorer</h1>
+  <p>Upload resumes (PDF, DOCX, TXT) to receive an AI literacy score from 0–10</p>
+</header>
+
+<div class="card">
+  <!-- Drop zone -->
+  <div id="drop-zone" role="button" aria-label="Upload resumes">
+    <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#4361ee" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+      <polyline points="17 8 12 3 7 8"/>
+      <line x1="12" y1="3" x2="12" y2="15"/>
+    </svg>
+    <p>Drag &amp; drop files here, or <span id="browse-link">browse</span></p>
+    <p style="font-size:0.8rem;margin-top:6px;color:#aaa;">Supported: PDF, DOCX, TXT &nbsp;·&nbsp; Multiple files allowed</p>
+    <input type="file" id="file-input" multiple accept=".pdf,.docx,.txt" />
+  </div>
+
+  <!-- Chosen files -->
+  <div id="file-list"></div>
+
+  <!-- Actions -->
+  <div class="actions">
+    <button id="submit-btn" disabled>Score Resumes</button>
+    <div id="status">
+      <div class="spinner"></div>
+      <span id="status-text">Processing…</span>
+    </div>
+  </div>
+
+  <!-- Error -->
+  <div id="error-banner"></div>
+
+  <!-- Results -->
+  <div id="results-section">
+    <h2>Results</h2>
+    <div class="table-wrap">
+      <table id="results-table">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Filename</th>
+            <th>AI Literacy Score</th>
+          </tr>
+        </thead>
+        <tbody id="results-body"></tbody>
+      </table>
+    </div>
+    <button id="download-btn">Download CSV</button>
+  </div>
+</div>
+
+<footer>Powered by Claude · Scores range from 0 (no AI knowledge) to 10 (pioneering expert)</footer>
+
+<script>
+  const dropZone   = document.getElementById('drop-zone');
+  const fileInput  = document.getElementById('file-input');
+  const browseLink = document.getElementById('browse-link');
+  const fileList   = document.getElementById('file-list');
+  const submitBtn  = document.getElementById('submit-btn');
+  const status     = document.getElementById('status');
+  const statusText = document.getElementById('status-text');
+  const errorBanner = document.getElementById('error-banner');
+  const resultsSection = document.getElementById('results-section');
+  const resultsBody = document.getElementById('results-body');
+  const downloadBtn = document.getElementById('download-btn');
+
+  let selectedFiles = [];
+  let lastCsvText = '';
+
+  // --- File selection ---
+  browseLink.addEventListener('click', () => fileInput.click());
+  dropZone.addEventListener('click', (e) => { if (e.target !== browseLink) fileInput.click(); });
+
+  fileInput.addEventListener('change', () => addFiles(Array.from(fileInput.files)));
+
+  dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+  dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+  dropZone.addEventListener('drop', (e) => {
+    e.preventDefault();
+    dropZone.classList.remove('drag-over');
+    addFiles(Array.from(e.dataTransfer.files));
+  });
+
+  function addFiles(incoming) {
+    const allowed = ['pdf', 'docx', 'txt'];
+    incoming.forEach(f => {
+      const ext = f.name.split('.').pop().toLowerCase();
+      if (!allowed.includes(ext)) return;
+      if (!selectedFiles.find(x => x.name === f.name && x.size === f.size)) {
+        selectedFiles.push(f);
+      }
+    });
+    renderFileList();
+    fileInput.value = '';
+  }
+
+  function renderFileList() {
+    fileList.innerHTML = '';
+    selectedFiles.forEach((f, i) => {
+      const chip = document.createElement('div');
+      chip.className = 'file-chip';
+      chip.innerHTML = `<span>${escHtml(f.name)}</span><span class="remove" data-i="${i}" title="Remove">×</span>`;
+      fileList.appendChild(chip);
+    });
+    fileList.querySelectorAll('.remove').forEach(btn => {
+      btn.addEventListener('click', () => {
+        selectedFiles.splice(+btn.dataset.i, 1);
+        renderFileList();
+      });
+    });
+    submitBtn.disabled = selectedFiles.length === 0;
+  }
+
+  // --- Submit ---
+  submitBtn.addEventListener('click', async () => {
+    if (selectedFiles.length === 0) return;
+
+    submitBtn.disabled = true;
+    statusText.textContent = `Processing ${selectedFiles.length} resume${selectedFiles.length > 1 ? 's' : ''}…`;
+    status.style.display = 'flex';
+    errorBanner.style.display = 'none';
+    resultsSection.style.display = 'none';
+
+    const formData = new FormData();
+    selectedFiles.forEach(f => formData.append('files', f));
+
+    try {
+      const res = await fetch('/score', { method: 'POST', body: formData });
+      if (!res.ok) {
+        const detail = await res.json().then(j => j.detail).catch(() => res.statusText);
+        throw new Error(detail);
+      }
+      const csvText = await res.text();
+      lastCsvText = csvText;
+      renderResults(csvText);
+    } catch (err) {
+      errorBanner.textContent = `Error: ${err.message}`;
+      errorBanner.style.display = 'block';
+    } finally {
+      status.style.display = 'none';
+      submitBtn.disabled = selectedFiles.length === 0;
+    }
+  });
+
+  function renderResults(csvText) {
+    const rows = csvText.trim().split('\n').slice(1); // skip header
+    resultsBody.innerHTML = '';
+    rows.forEach((row, idx) => {
+      const cols = parseCSVRow(row);
+      const filename = cols[0] || '';
+      const scoreRaw = cols[1] || '';
+      const scoreNum = parseFloat(scoreRaw);
+      const isNumeric = !isNaN(scoreNum);
+
+      let badgeClass = 'score-error';
+      if (isNumeric) {
+        if (scoreNum <= 3)       badgeClass = 'score-low';
+        else if (scoreNum <= 6)  badgeClass = 'score-mid';
+        else                     badgeClass = 'score-high';
+      }
+
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${idx + 1}</td>
+        <td>${escHtml(filename)}</td>
+        <td><span class="score-badge ${badgeClass}">${escHtml(scoreRaw)}</span></td>
+      `;
+      resultsBody.appendChild(tr);
+    });
+    resultsSection.style.display = 'block';
+  }
+
+  // Minimal CSV row parser (handles quoted fields)
+  function parseCSVRow(row) {
+    const result = [];
+    let cur = '', inQuote = false;
+    for (let i = 0; i < row.length; i++) {
+      const ch = row[i];
+      if (ch === '"') { inQuote = !inQuote; }
+      else if (ch === ',' && !inQuote) { result.push(cur); cur = ''; }
+      else { cur += ch; }
+    }
+    result.push(cur);
+    return result;
+  }
+
+  // --- Download ---
+  downloadBtn.addEventListener('click', () => {
+    if (!lastCsvText) return;
+    const blob = new Blob([lastCsvText], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'ai_literacy_scores.csv';
+    a.click();
+    URL.revokeObjectURL(url);
+  });
+
+  function escHtml(str) {
+    return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+</script>
+</body>
+</html>
